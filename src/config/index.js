@@ -1,0 +1,3 @@
+export const ROPSTEN_SK =
+  'abf1fceb9c82344e6b3fad22e4614aac8a95ed9ae87dcc0a04cee5dc59fc84d4';
+export const ETHERSCAN_API = '6JJS9MSRUX7SAU7FBCHFV34M1T1N7U5QEB';

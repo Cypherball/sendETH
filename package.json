@@ -10,12 +10,15 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@ethersproject/shims": "^5.4.0",
     "@react-native-async-storage/async-storage": "^1.15.5",
     "axios": "^0.21.1",
+    "ethers": "^5.4.0",
     "lodash": "^4.17.21",
     "moment": "^2.29.1",
     "react": "17.0.1",
     "react-native": "0.64.2",
+    "react-native-get-random-values": "^1.7.0",
     "react-native-paper": "^4.9.2",
     "react-native-safe-area-context": "^3.2.0",
     "react-native-safe-area-view": "^1.1.1",
