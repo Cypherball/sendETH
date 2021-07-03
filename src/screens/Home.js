@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {StyleSheet, View, TouchableOpacity} from 'react-native';
+import {StyleSheet, View, TouchableOpacity, Keyboard} from 'react-native';
 import {
   Text,
   Title,
@@ -12,9 +12,10 @@ import {
 import SafeAreaView from 'react-native-safe-area-view';
 import validator from 'validator';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {getBalance, sendTransaction} from '../api';
+import {getBalance, getTransactions, sendTransaction} from '../api';
 import ResponseModal from '../components/ResponseModal';
 import colors from '../config/colors';
+import TxList from '../components/TxList';
 
 const Home = () => {
   // transaction amount in ETH
@@ -24,13 +25,21 @@ const Home = () => {
   const [pk, setPk] = useState('');
   const [pkErr, setPkErr] = useState('');
 
+  // User Account Balance
   const [bal, setBal] = useState(null);
 
-  const [loading, setLoading] = useState(false);
+  // User Transactions
+  const [txs, setTxs] = useState([]);
 
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Modal to show transaction response
   const [modalVisible, setModalVisible] = React.useState(false);
   const showModal = () => setModalVisible(true);
-  const hideModal = () => setModalVisible(false);
+  const hideModal = () => {
+    setModalVisible(false);
+  };
 
   const [txError, setTxError] = useState('');
 
@@ -45,7 +54,24 @@ const Home = () => {
         setBal('?');
       }
     })();
+    // get all user's transactions
+    (async () => {
+      setRefreshing(true);
+      try {
+        const res = await getTransactions();
+        if (res.data.message === 'OK') setTxs(res.data.result);
+      } catch (err) {
+        console.log(err);
+      }
+      setRefreshing(false);
+    })();
   }, []);
+
+  useEffect(() => {
+    if (txError) {
+      showModal();
+    }
+  }, [txError]);
 
   const updateBalance = async () => {
     setBal(null);
@@ -56,6 +82,18 @@ const Home = () => {
       console.log(err);
       setBal('?');
     }
+  };
+
+  const txListRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const res = await getTransactions();
+      console.log(`RESULT: ${JSON.stringify(res)}`);
+      if (res.data.message === 'OK') setTxs(res.data.result);
+    } catch (err) {
+      console.log(err);
+    }
+    setRefreshing(false);
   };
 
   const validateAmnt = _amnt => {
@@ -102,13 +140,34 @@ const Home = () => {
   };
 
   const onSendPress = async () => {
+    Keyboard.dismiss();
+    // Validate inputs and send transaction
     setLoading(true);
     if (validate()) {
       console.log('SENDING...');
-      const tx = await sendTransaction(amnt, pk);
-      if (tx) console.log('Success');
-      else console.log('Oh No! There was an error :(');
+      try {
+        const tx = await sendTransaction(amnt, pk);
+        if (tx) {
+          console.log('Success');
+          showModal();
+          setPk('');
+          updateBalance();
+        } else console.log('Oh No! There was an error :(');
+        txListRefresh();
+      } catch (err) {
+        console.log(`Oh No! There was an error`);
+        // Error Handling (Will show error modal automatically because of the useEffect hook)
+        if (err.code === 'INSUFFICIENT_FUNDS')
+          setTxError(
+            'Your account has insufficient funds to make this transaction!',
+          );
+        else if (err.code === 'INVALID_ARGUMENT' && err.argument === 'address')
+          setTxError('Invalid Recepient Address Provided!');
+        else setTxError(err.code);
+        txListRefresh();
+      }
     } else console.log('Invalid Input/s');
+
     setLoading(false);
   };
 
@@ -133,12 +192,7 @@ const Home = () => {
           <TouchableOpacity
             onPress={updateBalance}
             rippleColor="rgba(0, 0, 0, .32)">
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
+            <View style={styles.balance_view}>
               <Text style={{fontSize: 24, marginRight: 5}}>{bal}</Text>
               <Icon
                 name={'ethereum'}
@@ -194,6 +248,8 @@ const Home = () => {
           {loading ? 'SENDING' : 'SEND'}
         </Text>
       </Button>
+      {/* List of User's Transactions */}
+      <TxList txs={txs} refreshing={refreshing} onRefresh={txListRefresh} />
     </SafeAreaView>
   );
 };
@@ -207,13 +263,19 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: colors.primary_dark,
   },
+
   title: {
     fontSize: 48,
     padding: 20,
     color: colors.accent,
-    marginTop: 30,
-    marginBottom: 20,
+    marginTop: 12,
+    //marginBottom: 10,
     textAlign: 'center',
+  },
+  balance_view: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     margin: 8,
@@ -226,7 +288,8 @@ const styles = StyleSheet.create({
   },
   send_btn: {
     marginHorizontal: 5,
-    marginVertical: 18,
+    marginTop: 10,
+    marginBottom: 24,
     padding: 2,
   },
 });
